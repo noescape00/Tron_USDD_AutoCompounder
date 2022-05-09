@@ -68,7 +68,7 @@ namespace DeFi_Strategies.Tron.CompoundUSDD
                         continue;
                     }
 
-                    this.logger.Info("Claiming rewards and waiting 30 sec for state update...");
+                    this.logger.Info(string.Format("Claiming {0} USDD rewards and waiting 30 sec for state update...", claimableUSDD));
                     await gauge.ClaimRewardsAsync();
                     await Task.Delay(TimeSpan.FromSeconds(30));
 
