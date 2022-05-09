@@ -22,8 +22,23 @@ Install .net 6 from here: https://dotnet.microsoft.com/en-us/download/dotnet/6.0
 
 ## How to run
 
-
-
 1. Clone repository and build project using `dotnet build --configuration Release`
 2. Go to `\bin\Release\net6.0` and edit `appsettings.json`: insert your mnemonic and `TronGridAPIKey`, also set `ClaimThresholdUSDD` to any desirable value (compounding will happen when claimable USDD amount is larger than configured threshold)
 3. Run `DeFi_Strategies.exe`
+
+
+
+
+
+
+
+
+
+p.s.
+
+On average it costs 12.5$ in TRX fees to pay for 4 txes to autocompound. 
+
+So probably don't set autocompounding threshold at less than $12.5. 
+
+I'd suggest using smth like $150-200 for a threshold. 
+
