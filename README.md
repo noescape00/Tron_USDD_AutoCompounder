@@ -28,7 +28,7 @@ Install .net 6 from here: https://dotnet.microsoft.com/en-us/download/dotnet/6.0
 
 
 
-
+Build & setup video here: https://www.youtube.com/watch?v=4C5iuqsIbtg
 
 
 
