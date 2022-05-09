@@ -69,7 +69,13 @@ namespace DeFi_Strategies.Tron.CompoundUSDD
                     }
 
                     this.logger.Info(string.Format("Claiming {0} USDD rewards and waiting 30 sec for state update...", claimableUSDD));
-                    await gauge.ClaimRewardsAsync();
+                    string claimTxId = await gauge.ClaimRewardsAsync();
+
+                    if (claimTxId == null)
+                        this.logger.Warn("Swap tx id is null! Error");
+                    else
+                        this.logger.Debug("Claim txid: " + claimTxId);
+
                     await Task.Delay(TimeSpan.FromSeconds(30));
 
                     AccountBalance balance_info = await this.GetBalancesInfoAsync();
@@ -78,10 +84,12 @@ namespace DeFi_Strategies.Tron.CompoundUSDD
                     var swapAmount = balance_info.Balance_USDD / 2;
                     this.logger.Info("Swapping half of USDD ({0}) for USDT and waiting 30 sec for state update...", swapAmount);
 
-                    var txId = await router.SwapUSDDforUSDTAsync(swapAmount);
+                    string swapTxId = await router.SwapUSDDforUSDTAsync(swapAmount);
 
-                    if (txId == null)
+                    if (swapTxId == null)
                         this.logger.Warn("Swap tx id is null! Error");
+                    else
+                        this.logger.Debug("Swap txid: " + swapTxId);
 
                     await Task.Delay(TimeSpan.FromSeconds(30));
 
@@ -114,9 +122,12 @@ namespace DeFi_Strategies.Tron.CompoundUSDD
 
                     this.logger.Info("Adding liquidity to pool. {0} USDD and {1} USDT", USDD_to_add, USDT_to_add);
 
-                    string txId2 = await router.AddLiquidityAsync(USDD_to_add, USDT_to_add);
-                    if (txId2 == null)
+                    string addLiquidityTxId = await router.AddLiquidityAsync(USDD_to_add, USDT_to_add);
+
+                    if (addLiquidityTxId == null)
                         this.logger.Warn("Add liquidity tx id is null! Error");
+                    else
+                        this.logger.Debug("Add liquidity txid: " + addLiquidityTxId);
 
                     await Task.Delay(TimeSpan.FromSeconds(30));
 
@@ -127,7 +138,12 @@ namespace DeFi_Strategies.Tron.CompoundUSDD
                     {
                         logger.Info("Depositing {0} LP tokens.", balance_info.Ballance_USDD_USDT_LP);
 
-                        await gauge.DepositLPTokensAsync(balance_info.Ballance_USDD_USDT_LP);
+                        string depositLPTxId = await gauge.DepositLPTokensAsync(balance_info.Ballance_USDD_USDT_LP);
+
+                        if (depositLPTxId == null)
+                            this.logger.Warn("Deposit LP tx id is null! Error");
+                        else
+                            this.logger.Debug("Deposit LP txid: " + depositLPTxId);
                     }
                     else
                         logger.Info("No LP tokens found, skipping.");
