@@ -54,82 +54,89 @@ namespace DeFi_Strategies.Tron.CompoundUSDD
 
             while (true)
             {
-                double claimableUSDD = await gauge.GetClaimableRewards();
-
-                this.logger.Info("Claimable USDD: {0}", claimableUSDD);
-
-                if (claimableUSDD < claimThresholdUSDD)
+                try
                 {
-                    logger.Info(string.Format("Claimable USDD ({0}) is less than threshold ({1}). Waiting 60 minutes before next try...", claimableUSDD, claimThresholdUSDD));
-                    await Task.Delay(TimeSpan.FromMinutes(60));
-                    continue;
+                    double claimableUSDD = await gauge.GetClaimableRewards();
+
+                    this.logger.Info("Claimable USDD: {0}", claimableUSDD);
+
+                    if (claimableUSDD < claimThresholdUSDD)
+                    {
+                        logger.Info(string.Format("Claimable USDD ({0}) is less than threshold ({1}). Waiting 60 minutes before next try...", claimableUSDD, claimThresholdUSDD));
+                        await Task.Delay(TimeSpan.FromMinutes(60));
+                        continue;
+                    }
+
+                    this.logger.Info("Claiming rewards and waiting 30 sec for state update...");
+                    await gauge.ClaimRewardsAsync();
+                    await Task.Delay(TimeSpan.FromSeconds(30));
+
+                    AccountBalance balance_info = await this.GetBalancesInfoAsync();
+                    balance_info.Log(this.logger);
+
+                    var swapAmount = balance_info.Balance_USDD / 2;
+                    this.logger.Info("Swapping half of USDD ({0}) for USDT and waiting 30 sec for state update...", swapAmount);
+
+                    var txId = await router.SwapUSDDforUSDTAsync(swapAmount);
+
+                    if (txId == null)
+                        this.logger.Warn("Swap tx id is null! Error");
+
+                    await Task.Delay(TimeSpan.FromSeconds(30));
+
+                    // Get LP reserves
+                    SunswapV2Router02.getReservesOutput reserves = await router.GetReservesAsync(USDD_USDT_lpPairAddress);
+
+                    double USDD_reserve = reserves._reserve0.DivideToDouble((BigInteger)Math.Pow(10, 18));
+                    double USDT_reserve = reserves._reserve1.DivideToDouble((BigInteger)Math.Pow(10, 6));
+
+                    double USDD_price_in_USDT = USDT_reserve / USDD_reserve;
+
+                    this.logger.Info("USDD-USDT LP reserves: {0} : {1}; USDD price in USDT: {2}", USDD_reserve, USDT_reserve, USDD_price_in_USDT);
+
+                    balance_info = await this.GetBalancesInfoAsync();
+                    balance_info.Log(this.logger);
+
+                    // Add liquidity
+                    decimal USDD_to_add, USDT_to_add;
+
+                    if (balance_info.Balance_USDT < balance_info.Balance_USDT * (decimal) USDD_price_in_USDT)
+                    {
+                        USDT_to_add = balance_info.Balance_USDT;
+                        USDD_to_add = USDT_to_add / (decimal)USDD_price_in_USDT;
+                    }
+                    else
+                    {
+                        USDD_to_add = balance_info.Balance_USDD;
+                        USDT_to_add = USDD_to_add * (decimal) USDD_price_in_USDT;
+                    }
+
+                    this.logger.Info("Adding liquidity to pool. {0} USDD and {1} USDT", USDD_to_add, USDT_to_add);
+
+                    string txId2 = await router.AddLiquidityAsync(USDD_to_add, USDT_to_add);
+                    if (txId2 == null)
+                        this.logger.Warn("Add liquidity tx id is null! Error");
+
+                    await Task.Delay(TimeSpan.FromSeconds(30));
+
+                    balance_info = await this.GetBalancesInfoAsync();
+                    balance_info.Log(this.logger);
+
+                    if (balance_info.Ballance_USDD_USDT_LP > 0)
+                    {
+                        logger.Info("Depositing {0} LP tokens.", balance_info.Ballance_USDD_USDT_LP);
+
+                        await gauge.DepositLPTokensAsync(balance_info.Ballance_USDD_USDT_LP);
+                    }
+                    else
+                        logger.Info("No LP tokens found, skipping.");
+                }
+                catch (Exception e)
+                {
+                    this.logger.Error(e.ToString());
                 }
 
-                this.logger.Info("Claiming rewards and waiting 30 sec for state update...");
-                await gauge.ClaimRewardsAsync();
-                await Task.Delay(TimeSpan.FromSeconds(30));
-
-                AccountBalance balance_info = await this.GetBalancesInfoAsync();
-                balance_info.Log(this.logger);
-
-                var swapAmount = balance_info.Balance_USDD / 2;
-                this.logger.Info("Swapping half of USDD ({0}) for USDT and waiting 30 sec for state update...", swapAmount);
-
-                var txId = await router.SwapUSDDforUSDTAsync(swapAmount);
-
-                if (txId == null)
-                    this.logger.Warn("Swap tx id is null! Error");
-
-                await Task.Delay(TimeSpan.FromSeconds(30));
-
-                // Get LP reserves
-                SunswapV2Router02.getReservesOutput reserves = await router.GetReservesAsync(USDD_USDT_lpPairAddress);
-
-                double USDD_reserve = reserves._reserve0.DivideToDouble((BigInteger)Math.Pow(10, 18));
-                double USDT_reserve = reserves._reserve1.DivideToDouble((BigInteger)Math.Pow(10, 6));
-
-                double USDD_price_in_USDT = USDT_reserve / USDD_reserve;
-
-                this.logger.Info("USDD-USDT LP reserves: {0} : {1}; USDD price in USDT: {2}", USDD_reserve, USDT_reserve, USDD_price_in_USDT);
-
-                balance_info = await this.GetBalancesInfoAsync();
-                balance_info.Log(this.logger);
-
-                // Add liquidity
-                decimal USDD_to_add, USDT_to_add;
-
-                if (balance_info.Balance_USDT < balance_info.Balance_USDT * (decimal) USDD_price_in_USDT)
-                {
-                    USDT_to_add = balance_info.Balance_USDT;
-                    USDD_to_add = USDT_to_add / (decimal)USDD_price_in_USDT;
-                }
-                else
-                {
-                    USDD_to_add = balance_info.Balance_USDD;
-                    USDT_to_add = USDD_to_add * (decimal) USDD_price_in_USDT;
-                }
-
-                this.logger.Info("Adding liquidity to pool. {0} USDD and {1} USDT", USDD_to_add, USDT_to_add);
-
-                string txId2 = await router.AddLiquidityAsync(USDD_to_add, USDT_to_add);
-                if (txId2 == null)
-                    this.logger.Warn("Add liquidity tx id is null! Error");
-
-                await Task.Delay(TimeSpan.FromSeconds(30));
-
-                balance_info = await this.GetBalancesInfoAsync();
-                balance_info.Log(this.logger);
-
-                if (balance_info.Ballance_USDD_USDT_LP > 0)
-                {
-                    logger.Info("Depositing {0} LP tokens.", balance_info.Ballance_USDD_USDT_LP);
-
-                    await gauge.DepositLPTokensAsync(balance_info.Ballance_USDD_USDT_LP);
-                }
-                else
-                    logger.Info("No LP tokens found, skipping.");
-
-                logger.Info("Compounded successfully. Now waiting 60 minutes...");
+                logger.Info("Waiting 60 minutes...");
                 await Task.Delay(TimeSpan.FromMinutes(60));
             }
         }
