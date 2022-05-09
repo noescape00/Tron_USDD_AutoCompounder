@@ -57,7 +57,7 @@ namespace DeFi_Strategies.Tron.CompoundUSDD
             {
                 try
                 {
-                    double claimableUSDD = await gauge.GetClaimableRewards();
+                    double claimableUSDD = await gauge.GetClaimableRewardsAsync();
 
                     this.logger.Info("Claimable USDD: {0}", claimableUSDD);
 

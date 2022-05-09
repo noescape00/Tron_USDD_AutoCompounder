@@ -20,8 +20,9 @@ namespace DeFi_Strategies.Tron.CompoundUSDD
 
         private const string USDT_address = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t";
 
-        private readonly IWalletClient _walletClient;
-        private readonly ITransactionClient _transactionClient;
+        private readonly IWalletClient walletClient;
+
+        private readonly ITransactionClient transactionClient;
 
         private readonly Logger logger = LogManager.GetCurrentClassLogger();
 
@@ -33,8 +34,8 @@ namespace DeFi_Strategies.Tron.CompoundUSDD
 
         public SunswapV2Router02(IWalletClient walletClient, ITransactionClient transactionClient, string routerAddress, string myAddress, string privateKey)
         {
-            _walletClient = walletClient;
-            _transactionClient = transactionClient;
+            this.walletClient = walletClient;
+            this.transactionClient = transactionClient;
             this.routerAddress = routerAddress;
             this.myAddress = myAddress;
             this.privateKey = privateKey;
@@ -42,10 +43,10 @@ namespace DeFi_Strategies.Tron.CompoundUSDD
 
         public async Task<string> SwapUSDDforUSDTAsync(decimal swapInAmount)
         {
-            var contractAddressBytes = Base58Encoder.DecodeFromBase58Check(routerAddress);
-            var myAddressBytes = Base58Encoder.DecodeFromBase58Check(myAddress);
+            byte[]? contractAddressBytes = Base58Encoder.DecodeFromBase58Check(routerAddress);
+            byte[]? myAddressBytes = Base58Encoder.DecodeFromBase58Check(myAddress);
 
-            Wallet.WalletClient? wallet = _walletClient.GetProtocol();
+            Wallet.WalletClient? wallet = walletClient.GetProtocol();
             FunctionABI? functionABI = ABITypedRegistry.GetFunctionABI<SwapExactTokensForTokensFunction>();
 
             try
@@ -61,17 +62,16 @@ namespace DeFi_Strategies.Tron.CompoundUSDD
                     deadline = (DateTime.Now + TimeSpan.FromMinutes(5)).ToUnixTime()
                 };
 
-                var encodedHex = new FunctionCallEncoder().EncodeRequest(swapFn, functionABI.Sha3Signature);
+                string? encodedHex = new FunctionCallEncoder().EncodeRequest(swapFn, functionABI.Sha3Signature);
 
-                var trigger = new TriggerSmartContract
+                TriggerSmartContract trigger = new TriggerSmartContract
                 {
                     ContractAddress = ByteString.CopyFrom(contractAddressBytes),
                     OwnerAddress = ByteString.CopyFrom(myAddressBytes),
                     Data = ByteString.CopyFrom(ByteArrary.HexToByteArray(encodedHex))
                 };
 
-
-                var transactionExtention = await wallet.TriggerConstantContractAsync(trigger, headers: _walletClient.GetHeaders());
+                TransactionExtention? transactionExtention = await wallet.TriggerConstantContractAsync(trigger, headers: walletClient.GetHeaders());
 
                 if (!transactionExtention.Result.Result)
                 {
@@ -84,12 +84,13 @@ namespace DeFi_Strategies.Tron.CompoundUSDD
 
                 if (transaction.Ret.Count > 0 && transaction.Ret[0].Ret == Transaction.Types.Result.Types.code.Failed)
                 {
+                    this.logger.Debug("Swap: Ret failed status");
                     return null;
                 }
 
-                var transSign = _transactionClient.GetTransactionSign(transaction, privateKey);
+                Transaction? transSign = transactionClient.GetTransactionSign(transaction, privateKey);
 
-                var result = await _transactionClient.BroadcastTransactionAsync(transSign);
+                await transactionClient.BroadcastTransactionAsync(transSign);
 
                 return transSign.GetTxid();
             }
@@ -103,7 +104,7 @@ namespace DeFi_Strategies.Tron.CompoundUSDD
         private string base58toHex(string base58String)
         {
             NBitcoin.DataEncoders.Base58Encoder base58Encoder = new NBitcoin.DataEncoders.Base58Encoder();
-            var bytes = base58Encoder.DecodeData(base58String);
+            byte[]? bytes = base58Encoder.DecodeData(base58String);
 
             HexEncoder hexEncoder = new HexEncoder();
 
@@ -132,27 +133,27 @@ namespace DeFi_Strategies.Tron.CompoundUSDD
 
         public async Task<getReservesOutput> GetReservesAsync(string USDD_USDT_LP_PAIR_Address)
         {
-            var contractAddressBytes = Base58Encoder.DecodeFromBase58Check(USDD_USDT_LP_PAIR_Address);
+            byte[] contractAddressBytes = Base58Encoder.DecodeFromBase58Check(USDD_USDT_LP_PAIR_Address);
 
-            var getReserves = new GetReservesFunction();
+            GetReservesFunction getReserves = new GetReservesFunction();
 
-            var callEncoder = new FunctionCallEncoder();
-            var functionABI = ABITypedRegistry.GetFunctionABI<GetReservesFunction>();
+            FunctionCallEncoder callEncoder = new FunctionCallEncoder();
+            FunctionABI? functionABI = ABITypedRegistry.GetFunctionABI<GetReservesFunction>();
 
-            var encodedHex = callEncoder.EncodeRequest(getReserves, functionABI.Sha3Signature);
+            string encodedHex = callEncoder.EncodeRequest(getReserves, functionABI.Sha3Signature);
 
-            var trigger = new TriggerSmartContract
+            TriggerSmartContract trigger = new TriggerSmartContract
             {
                 ContractAddress = ByteString.CopyFrom(contractAddressBytes),
                 Data = ByteString.CopyFrom(encodedHex.HexToByteArray()),
             };
 
-            Wallet.WalletClient? wallet = _walletClient.GetProtocol();
-            var txnExt = wallet.TriggerConstantContract(trigger, headers: _walletClient.GetHeaders());
+            Wallet.WalletClient? wallet = walletClient.GetProtocol();
+            TransactionExtention? txnExt = await wallet.TriggerConstantContractAsync(trigger, headers: walletClient.GetHeaders());
 
-            var result = txnExt.ConstantResult[0].ToByteArray().ToHex();
+            string result = txnExt.ConstantResult[0].ToByteArray().ToHex();
 
-            var reserves = new FunctionCallDecoder().DecodeOutput<getReservesOutput>(result);
+            getReservesOutput reserves = new FunctionCallDecoder().DecodeOutput<getReservesOutput>(result);
 
             return reserves;
         }
@@ -177,11 +178,10 @@ namespace DeFi_Strategies.Tron.CompoundUSDD
 
         public async Task<string> AddLiquidityAsync(decimal USDD_amount, decimal USDT_amount)
         {
-            var contractAddressBytes = Base58Encoder.DecodeFromBase58Check(routerAddress);
-            var myAddressBytes = Base58Encoder.DecodeFromBase58Check(myAddress);
+            byte[] contractAddressBytes = Base58Encoder.DecodeFromBase58Check(routerAddress);
+            byte[] myAddressBytes = Base58Encoder.DecodeFromBase58Check(myAddress);
 
-            Wallet.WalletClient? wallet = _walletClient.GetProtocol();
-            FunctionABI? functionABI = ABITypedRegistry.GetFunctionABI<addLiquidityFunction>();
+            FunctionABI functionABI = ABITypedRegistry.GetFunctionABI<addLiquidityFunction>();
 
             try
             {
@@ -200,20 +200,21 @@ namespace DeFi_Strategies.Tron.CompoundUSDD
                     deadline = (DateTime.Now + TimeSpan.FromMinutes(5)).ToUnixTime()
                 };
 
-                var encodedHex = new FunctionCallEncoder().EncodeRequest(addLiquidityFn, functionABI.Sha3Signature);
+                string encodedHex = new FunctionCallEncoder().EncodeRequest(addLiquidityFn, functionABI.Sha3Signature);
 
-                Transaction transaction = await TronHelpers.TriggerContractAsync(this._walletClient, contractAddressBytes, myAddressBytes, encodedHex);
+                Transaction transaction = await TronHelpers.TriggerContractAsync(this.walletClient, contractAddressBytes, myAddressBytes, encodedHex);
 
                 transaction.RawData.FeeLimit = 150 * 1000000L;
 
                 if (transaction.Ret.Count > 0 && transaction.Ret[0].Ret == Transaction.Types.Result.Types.code.Failed)
                 {
+                    this.logger.Debug("AddL: Ret failed status");
                     return null;
                 }
 
-                var transSign = _transactionClient.GetTransactionSign(transaction, privateKey);
+                Transaction transSign = transactionClient.GetTransactionSign(transaction, privateKey);
 
-                var result = await _transactionClient.BroadcastTransactionAsync(transSign);
+                await transactionClient.BroadcastTransactionAsync(transSign);
 
                 return transSign.GetTxid();
             }

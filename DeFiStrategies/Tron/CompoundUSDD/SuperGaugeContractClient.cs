@@ -16,8 +16,8 @@ namespace DeFi_Strategies.Tron.CompoundUSDD
 {
     public class SuperGaugeContractClient
     {
-        private readonly IWalletClient _walletClient;
-        private readonly ITransactionClient _transactionClient;
+        private readonly IWalletClient walletClient;
+        private readonly ITransactionClient transactionClient;
         private readonly string contractAddress;
         private readonly string accountAddress;
         private readonly string privateKey;
@@ -26,8 +26,8 @@ namespace DeFi_Strategies.Tron.CompoundUSDD
 
         public SuperGaugeContractClient(IWalletClient walletClient, ITransactionClient transactionClient, string contractAddress, string accountAddress, string privateKey)
         {
-            _walletClient = walletClient;
-            _transactionClient = transactionClient;
+            this.walletClient = walletClient;
+            this.transactionClient = transactionClient;
             this.contractAddress = contractAddress;
             this.accountAddress = accountAddress;
             this.privateKey = privateKey;
@@ -40,29 +40,30 @@ namespace DeFi_Strategies.Tron.CompoundUSDD
 
         public async Task<string> ClaimRewardsAsync()
         {
-            var contractAddressBytes = Base58Encoder.DecodeFromBase58Check(contractAddress);
-            var myAddressBytes = Base58Encoder.DecodeFromBase58Check(accountAddress);
+            byte[] contractAddressBytes = Base58Encoder.DecodeFromBase58Check(contractAddress);
+            byte[] myAddressBytes = Base58Encoder.DecodeFromBase58Check(accountAddress);
 
-            FunctionABI? functionABI = ABITypedRegistry.GetFunctionABI<ClaimRewardsFunction>();
+            FunctionABI functionABI = ABITypedRegistry.GetFunctionABI<ClaimRewardsFunction>();
 
             try
             {
                 ClaimRewardsFunction claim = new ClaimRewardsFunction();
 
-                var encodedHex = new FunctionCallEncoder().EncodeRequest(claim, functionABI.Sha3Signature);
+                string encodedHex = new FunctionCallEncoder().EncodeRequest(claim, functionABI.Sha3Signature);
 
-                var transaction = await TronHelpers.TriggerContractAsync(this._walletClient, contractAddressBytes, myAddressBytes, encodedHex);
+                Transaction transaction = await TronHelpers.TriggerContractAsync(this.walletClient, contractAddressBytes, myAddressBytes, encodedHex);
 
                 transaction.RawData.FeeLimit = 400 * 1000000L;
 
                 if (transaction.Ret.Count > 0 && transaction.Ret[0].Ret == Transaction.Types.Result.Types.code.Failed)
                 {
+                    this.logger.Debug("Claim: Ret failed status");
                     return null;
                 }
 
-                var transSign = _transactionClient.GetTransactionSign(transaction, privateKey);
+                Transaction transSign = transactionClient.GetTransactionSign(transaction, privateKey);
 
-                await _transactionClient.BroadcastTransactionAsync(transSign);
+                await transactionClient.BroadcastTransactionAsync(transSign);
 
                 return transSign.GetTxid();
             }
@@ -80,77 +81,72 @@ namespace DeFi_Strategies.Tron.CompoundUSDD
             public string addr_address { get; set; }
         }
 
-        public async Task<double> GetClaimableRewards()
+        public async Task<double> GetClaimableRewardsAsync()
         {
-            var contractAddressBytes = Base58Encoder.DecodeFromBase58Check(contractAddress);
-            var ownerAddressBytes = Base58Encoder.DecodeFromBase58Check(accountAddress);
-            var wallet = _walletClient.GetProtocol();
-            var functionABI = ABITypedRegistry.GetFunctionABI<ClaimableRewardsFunction>();
+            byte[] contractAddressBytes = Base58Encoder.DecodeFromBase58Check(contractAddress);
+            byte[] ownerAddressBytes = Base58Encoder.DecodeFromBase58Check(accountAddress);
+            Wallet.WalletClient wallet = walletClient.GetProtocol();
+            FunctionABI functionABI = ABITypedRegistry.GetFunctionABI<ClaimableRewardsFunction>();
 
-            var addressBytes = new byte[20];
+            byte[] addressBytes = new byte[20];
             Array.Copy(ownerAddressBytes, 1, addressBytes, 0, addressBytes.Length);
 
-            var addressBytesHex = "0x" + addressBytes.ToHex();
+            string addressBytesHex = "0x" + addressBytes.ToHex();
 
-            var claimableRewards = new ClaimableRewardsFunction { addr_address = addressBytesHex };
+            ClaimableRewardsFunction claimableRewards = new ClaimableRewardsFunction { addr_address = addressBytesHex };
 
-            var encodedHex = new FunctionCallEncoder().EncodeRequest(claimableRewards, functionABI.Sha3Signature);
+            string encodedHex = new FunctionCallEncoder().EncodeRequest(claimableRewards, functionABI.Sha3Signature);
 
-            var trigger = new TriggerSmartContract
+            TriggerSmartContract trigger = new TriggerSmartContract
             {
                 ContractAddress = ByteString.CopyFrom(contractAddressBytes),
                 OwnerAddress = ByteString.CopyFrom(ownerAddressBytes),
                 Data = ByteString.CopyFrom(encodedHex.HexToByteArray()),
             };
 
-            var transactionExtention = await wallet.TriggerConstantContractAsync(trigger, headers: _walletClient.GetHeaders());
+            var transactionExtention = await wallet.TriggerConstantContractAsync(trigger, headers: walletClient.GetHeaders());
 
             if (!transactionExtention.Result.Result)
-            {
                 throw new Exception(transactionExtention.Result.Message.ToStringUtf8());
-            }
+
             if (transactionExtention.ConstantResult.Count == 0)
-            {
                 throw new Exception($"result error, ConstantResult length=0.");
-            }
 
-            var output = transactionExtention.ConstantResult[0].ToByteArray().ToHex();
+            string output = transactionExtention.ConstantResult[0].ToByteArray().ToHex();
 
-            var num = BigInteger.Parse(output, NumberStyles.HexNumber);
+            BigInteger num = BigInteger.Parse(output, NumberStyles.HexNumber);
 
-            var claimableUSDD = num.DivideToDouble(1000000000000000000);
+            double claimableUSDD = num.DivideToDouble(1000000000000000000);
 
             return claimableUSDD;
         }
 
         public async Task<string> DepositLPTokensAsync(decimal LPTokensAmount)
         {
-            var contractAddressBytes = Base58Encoder.DecodeFromBase58Check(contractAddress);
-            var myAddressBytes = Base58Encoder.DecodeFromBase58Check(accountAddress);
+            byte[] contractAddressBytes = Base58Encoder.DecodeFromBase58Check(contractAddress);
+            byte[] myAddressBytes = Base58Encoder.DecodeFromBase58Check(accountAddress);
 
-            FunctionABI? functionABI = ABITypedRegistry.GetFunctionABI<DepositLPTokensFunction>();
+            FunctionABI functionABI = ABITypedRegistry.GetFunctionABI<DepositLPTokensFunction>();
 
             try
             {
-                DepositLPTokensFunction deposit = new DepositLPTokensFunction()
-                {
-                    value = (BigInteger)(LPTokensAmount * 1000000000000000000)
-                };
+                DepositLPTokensFunction deposit = new DepositLPTokensFunction() { value = (BigInteger)(LPTokensAmount * 1000000000000000000) };
 
-                var encodedHex = new FunctionCallEncoder().EncodeRequest(deposit, functionABI.Sha3Signature);
+                string encodedHex = new FunctionCallEncoder().EncodeRequest(deposit, functionABI.Sha3Signature);
 
-                var transaction = await TronHelpers.TriggerContractAsync(this._walletClient, contractAddressBytes, myAddressBytes, encodedHex);
+                Transaction transaction = await TronHelpers.TriggerContractAsync(this.walletClient, contractAddressBytes, myAddressBytes, encodedHex);
 
                 transaction.RawData.FeeLimit = 400 * 1000000L;
 
                 if (transaction.Ret.Count > 0 && transaction.Ret[0].Ret == Transaction.Types.Result.Types.code.Failed)
                 {
+                    this.logger.Debug("Deposit: Ret failed status");
                     return null;
                 }
 
-                var transSign = _transactionClient.GetTransactionSign(transaction, privateKey);
+                Transaction transSign = transactionClient.GetTransactionSign(transaction, privateKey);
 
-                await _transactionClient.BroadcastTransactionAsync(transSign);
+                await transactionClient.BroadcastTransactionAsync(transSign);
 
                 return transSign.GetTxid();
             }
