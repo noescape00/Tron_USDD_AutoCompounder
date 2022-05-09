@@ -23,7 +23,7 @@
         public Active_Permission[] active_permission { get; set; }
         public Assetv2[] assetV2 { get; set; }
         public string address { get; set; }
-        public int balance { get; set; }
+        public long balance { get; set; }
         public long create_time { get; set; }
         public Trc20[] trc20 { get; set; }
         public long latest_consume_free_time { get; set; }
@@ -32,14 +32,14 @@
     public class Owner_Permission
     {
         public Key[] keys { get; set; }
-        public int threshold { get; set; }
+        public long threshold { get; set; }
         public string permission_name { get; set; }
     }
 
     public class Key
     {
         public string address { get; set; }
-        public int weight { get; set; }
+        public long weight { get; set; }
     }
 
     public class Account_Resource
@@ -49,7 +49,7 @@
 
     public class Free_Asset_Net_Usagev2
     {
-        public int value { get; set; }
+        public long value { get; set; }
         public string key { get; set; }
     }
 
@@ -57,8 +57,8 @@
     {
         public string operations { get; set; }
         public Key1[] keys { get; set; }
-        public int threshold { get; set; }
-        public int id { get; set; }
+        public long threshold { get; set; }
+        public long id { get; set; }
         public string type { get; set; }
         public string permission_name { get; set; }
     }
@@ -66,7 +66,7 @@
     public class Key1
     {
         public string address { get; set; }
-        public int weight { get; set; }
+        public long weight { get; set; }
     }
 
     public class Assetv2

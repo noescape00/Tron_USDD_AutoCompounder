@@ -2,6 +2,7 @@
 using DeFi_Strategies.Helpers;
 using Nethereum.HdWallet;
 using Nethereum.Web3.Accounts;
+using Newtonsoft.Json;
 using NLog;
 using RestSharp;
 using TronNet;
@@ -149,9 +150,11 @@ namespace DeFi_Strategies.Tron.CompoundUSDD
             RestRequest request = new RestRequest(accInfoEndpoint);
             request.AddHeader("Accept", "application/json");
 
-            RestResponse<AccountInfoRoot> response = await client.ExecuteAsync<AccountInfoRoot>(request);
+            RestResponse response = await client.ExecuteAsync<AccountInfoRoot>(request);
 
-            Datum data = response.Data.data.First();
+            AccountInfoRoot rootObj = JsonConvert.DeserializeObject<AccountInfoRoot>(response.Content);
+
+            var data = rootObj.data.First();
 
             decimal trxBalance = (decimal)data.balance / 1000000;
 
