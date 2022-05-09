@@ -111,16 +111,23 @@ namespace DeFi_Strategies.Tron.CompoundUSDD
 
                 this.logger.Info("Adding liquidity to pool. {0} USDD and {1} USDT", USDD_to_add, USDT_to_add);
 
-                await router.AddLiquidityAsync(USDD_to_add, USDT_to_add);
+                string txId2 = await router.AddLiquidityAsync(USDD_to_add, USDT_to_add);
+                if (txId2 == null)
+                    this.logger.Warn("Add liquidity tx id is null! Error");
 
                 await Task.Delay(TimeSpan.FromSeconds(30));
 
                 balance_info = await this.GetBalancesInfoAsync();
                 balance_info.Log(this.logger);
 
-                logger.Info("Depositing {0} LP tokens.", balance_info.Ballance_USDD_USDT_LP);
+                if (balance_info.Ballance_USDD_USDT_LP > 0)
+                {
+                    logger.Info("Depositing {0} LP tokens.", balance_info.Ballance_USDD_USDT_LP);
 
-                await gauge.DepositLPTokensAsync(balance_info.Ballance_USDD_USDT_LP);
+                    await gauge.DepositLPTokensAsync(balance_info.Ballance_USDD_USDT_LP);
+                }
+                else
+                    logger.Info("No LP tokens found, skipping.");
 
                 logger.Info("Compounded successfully. Now waiting 60 minutes...");
                 await Task.Delay(TimeSpan.FromMinutes(60));
