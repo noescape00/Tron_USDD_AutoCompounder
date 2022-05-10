@@ -18,7 +18,7 @@ Get trongrid api key here: https://www.trongrid.io/
 
 Install .net 6 from here: https://dotnet.microsoft.com/en-us/download/dotnet/6.0
 
-
+Install Microsoft Visual C++ Redistributable from here: https://docs.microsoft.com/en-US/cpp/windows/latest-supported-vc-redist?view=msvc-170
 
 ## How to run
 
