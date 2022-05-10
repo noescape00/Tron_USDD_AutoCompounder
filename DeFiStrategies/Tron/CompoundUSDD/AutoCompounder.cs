@@ -81,7 +81,7 @@ namespace DeFi_Strategies.Tron.CompoundUSDD
 
                     if ((double)balanceInfo.Balance_USDD < claimThresholdUSDD)
                     {
-                        this.logger.Info(string.Format("USDD balance is less than threshold of {0}. Waiting 60 minutes for next iteration...", claimableUSDD));
+                        this.logger.Info(string.Format("USDD balance is less than threshold of {0}. Waiting 60 minutes for next iteration...", claimThresholdUSDD));
                         await Task.Delay(TimeSpan.FromMinutes(60));
                         continue;
                     }
