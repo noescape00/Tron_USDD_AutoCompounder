@@ -2,12 +2,10 @@
 
 This bot does the following: 
 
-
-
 1.  Check claimable USDD on SunSwap USDD-USDT LP pool https://sun.io/?lang=en-US#/stake
 2. If claimable USDD > threshold => claim USDD
-3. Swap half of available USDD for USDT
-4. Enter USDD:USDT LP
+3. If available USDD > threshold  => swap half of USDD for USDT
+4. Enter USDD:USDT liquidity pool
 5. Deposit LP tokens to sunswap
 
 
