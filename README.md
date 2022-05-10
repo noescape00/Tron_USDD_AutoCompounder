@@ -42,3 +42,8 @@ So probably don't set autocompounding threshold at less than $12.5.
 
 I'd suggest using smth like $150-200 for a threshold. 
 
+
+
+p.s.s
+
+Contact: @Xudox0 (telegram)
