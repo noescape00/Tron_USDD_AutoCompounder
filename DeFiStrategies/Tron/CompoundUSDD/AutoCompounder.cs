@@ -49,7 +49,7 @@ namespace DeFi_Strategies.Tron.CompoundUSDD
 
         public async Task AutocompoundAsync()
         {
-            this.logger.Info("Autocompounding started.");
+            this.logger.Info("Autocompounding started. Your address: " + accountAddress);
             SuperGaugeContractClient gauge = new SuperGaugeContractClient(this.wallet, this.transactionClient, GaugeAddress, accountAddress, this.mainAccount.PrivateKey);
             SunswapV2Router02 router = new SunswapV2Router02(this.wallet, this.transactionClient, SunswapRouterAddress, this.accountAddress, this.mainAccount.PrivateKey);
 
@@ -62,26 +62,31 @@ namespace DeFi_Strategies.Tron.CompoundUSDD
                     this.logger.Info("Claimable USDD: {0}", claimableUSDD);
 
                     if (claimableUSDD < claimThresholdUSDD)
+                        logger.Info(string.Format("Claimable USDD ({0}) is less than threshold ({1}). Not claiming.", claimableUSDD, claimThresholdUSDD));
+                    else
                     {
-                        logger.Info(string.Format("Claimable USDD ({0}) is less than threshold ({1}). Waiting 60 minutes before next try...", claimableUSDD, claimThresholdUSDD));
+                        this.logger.Info(string.Format("Claiming {0} USDD rewards and waiting 30 sec for state update...", claimableUSDD));
+                        string claimTxId = await gauge.ClaimRewardsAsync();
+
+                        if (claimTxId == null)
+                            this.logger.Warn("Swap tx id is null! Error");
+                        else
+                            this.logger.Debug("Claim txid: " + claimTxId);
+
+                        await Task.Delay(TimeSpan.FromSeconds(30));
+                    }
+
+                    AccountBalance balanceInfo = await this.GetBalancesInfoAsync();
+                    balanceInfo.Log(this.logger);
+
+                    if ((double)balanceInfo.Balance_USDD < claimThresholdUSDD)
+                    {
+                        this.logger.Info(string.Format("USDD balance is less than threshold of {0}. Waiting 60 minutes for next iteration...", claimableUSDD));
                         await Task.Delay(TimeSpan.FromMinutes(60));
                         continue;
                     }
 
-                    this.logger.Info(string.Format("Claiming {0} USDD rewards and waiting 30 sec for state update...", claimableUSDD));
-                    string claimTxId = await gauge.ClaimRewardsAsync();
-
-                    if (claimTxId == null)
-                        this.logger.Warn("Swap tx id is null! Error");
-                    else
-                        this.logger.Debug("Claim txid: " + claimTxId);
-
-                    await Task.Delay(TimeSpan.FromSeconds(30));
-
-                    AccountBalance balance_info = await this.GetBalancesInfoAsync();
-                    balance_info.Log(this.logger);
-
-                    var swapAmount = balance_info.Balance_USDD / 2;
+                    var swapAmount = balanceInfo.Balance_USDD / 2;
                     this.logger.Info("Swapping half of USDD ({0}) for USDT and waiting 30 sec for state update...", swapAmount);
 
                     string swapTxId = await router.SwapUSDDforUSDTAsync(swapAmount);
@@ -103,20 +108,20 @@ namespace DeFi_Strategies.Tron.CompoundUSDD
 
                     this.logger.Info("USDD-USDT LP reserves: {0} : {1}; USDD price in USDT: {2}", USDD_reserve, USDT_reserve, USDD_price_in_USDT);
 
-                    balance_info = await this.GetBalancesInfoAsync();
-                    balance_info.Log(this.logger);
+                    balanceInfo = await this.GetBalancesInfoAsync();
+                    balanceInfo.Log(this.logger);
 
                     // Add liquidity
                     decimal USDD_to_add, USDT_to_add;
 
-                    if (balance_info.Balance_USDT < balance_info.Balance_USDT * (decimal) USDD_price_in_USDT)
+                    if (balanceInfo.Balance_USDT < balanceInfo.Balance_USDT * (decimal) USDD_price_in_USDT)
                     {
-                        USDT_to_add = balance_info.Balance_USDT;
+                        USDT_to_add = balanceInfo.Balance_USDT;
                         USDD_to_add = USDT_to_add / (decimal)USDD_price_in_USDT;
                     }
                     else
                     {
-                        USDD_to_add = balance_info.Balance_USDD;
+                        USDD_to_add = balanceInfo.Balance_USDD;
                         USDT_to_add = USDD_to_add * (decimal) USDD_price_in_USDT;
                     }
 
@@ -131,14 +136,14 @@ namespace DeFi_Strategies.Tron.CompoundUSDD
 
                     await Task.Delay(TimeSpan.FromSeconds(30));
 
-                    balance_info = await this.GetBalancesInfoAsync();
-                    balance_info.Log(this.logger);
+                    balanceInfo = await this.GetBalancesInfoAsync();
+                    balanceInfo.Log(this.logger);
 
-                    if (balance_info.Ballance_USDD_USDT_LP > 0)
+                    if (balanceInfo.Ballance_USDD_USDT_LP > 0)
                     {
-                        logger.Info("Depositing {0} LP tokens.", balance_info.Ballance_USDD_USDT_LP);
+                        logger.Info("Depositing {0} LP tokens.", balanceInfo.Ballance_USDD_USDT_LP);
 
-                        string depositLPTxId = await gauge.DepositLPTokensAsync(balance_info.Ballance_USDD_USDT_LP);
+                        string depositLPTxId = await gauge.DepositLPTokensAsync(balanceInfo.Ballance_USDD_USDT_LP);
 
                         if (depositLPTxId == null)
                             this.logger.Warn("Deposit LP tx id is null! Error");
