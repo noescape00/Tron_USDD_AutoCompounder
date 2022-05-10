@@ -40,7 +40,7 @@ namespace DeFi_Strategies.Tron.CompoundUSDD
             this.claimThresholdUSDD = config.ClaimThresholdUSDD;
 
             // Setup account
-            Wallet wallet1 = new Wallet(accountMnemonic, null);
+            Wallet wallet1 = new Wallet(accountMnemonic, null, "m/44'/195'/0'/0");
             this.mainAccount = wallet1.GetAccount(0);
 
             this.account = wallet.GetAccount(mainAccount.PrivateKey);
